@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+	html {
+		scroll-behavior: smooth;
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	::selection {
+		background-color: rgba(245, 158, 11, 0.25);
+	}
+
+	/* Scrollbar styling */
+	::-webkit-scrollbar {
+		width: 6px;
+		height: 6px;
+	}
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	::-webkit-scrollbar-thumb {
+		background: #d1d5db;
+		border-radius: 3px;
+	}
+	::-webkit-scrollbar-thumb:hover {
+		background: #9ca3af;
+	}
+}
+
+@layer components {
+	/* Prose rendering for meeting notes */
+	.prose h1 {
+		@apply text-2xl font-bold text-gray-900 mt-6 mb-3;
+	}
+	.prose h2 {
+		@apply text-xl font-bold text-gray-800 mt-5 mb-2;
+	}
+	.prose h3 {
+		@apply text-lg font-semibold text-gray-700 mt-4 mb-2;
+	}
+	.prose p {
+		@apply text-sm text-gray-700 leading-relaxed mb-3;
+	}
+	.prose ul {
+		@apply list-disc pl-5 mb-3 space-y-1;
+	}
+	.prose ol {
+		@apply list-decimal pl-5 mb-3 space-y-1;
+	}
+	.prose li {
+		@apply text-sm text-gray-700;
+	}
+	.prose strong {
+		@apply font-semibold text-gray-900;
+	}
+	.prose hr {
+		@apply my-6 border-gray-200;
+	}
+}
