@@ -1,7 +1,6 @@
 import { get } from 'svelte/store';
 import { locale } from '$lib/i18n';
 import { sendMessage } from '$lib/llm';
-import { getModel } from '$lib/llm/models';
 import { session } from '$lib/stores/session';
 import { buildDiscussionPrompt, parseDiscussionResponse } from '$lib/prompts/discussion';
 import type { Persona } from '$lib/types/persona';
@@ -91,6 +90,7 @@ export class DiscussionEngine {
 			const prompt = buildDiscussionPrompt({
 				theme: s.setup.theme,
 				direction: s.setup.direction,
+				format: s.setup.format,
 				personas: s.setup.personas,
 				utterances: s.utterances,
 				currentRound: round,

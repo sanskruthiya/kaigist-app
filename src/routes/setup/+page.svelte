@@ -26,6 +26,7 @@
 	// Step 3 state
 	let rounds = $state(5);
 	let direction = $state('');
+	let format = $state<'free' | 'ranking' | 'ideation'>('free');
 
 	const stepLabels: Array<'setup_step_theme' | 'setup_step_personas' | 'setup_step_settings'> = [
 		'setup_step_theme',
@@ -139,9 +140,9 @@
 
 	<!-- Step progress bar -->
 	<div class="flex gap-2 mb-8">
-		{#each Array(totalSteps) as _, i}
+		{#each Array.from({ length: totalSteps }, (_, i) => i) as stepIndex (stepIndex)}
 			<div
-				class="h-1 flex-1 rounded-full transition-colors {i < currentStep
+				class="h-1 flex-1 rounded-full transition-colors {stepIndex < currentStep
 					? 'bg-amber-400'
 					: 'bg-gray-200'}"
 			></div>
@@ -187,9 +188,9 @@
 					bind:value={selectedModel}
 					class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all"
 				>
-					{#each LLM_PROVIDERS as provider}
+					{#each LLM_PROVIDERS as provider (provider.name)}
 						<optgroup label={provider.name}>
-							{#each provider.models as model}
+							{#each provider.models as model (model.id)}
 								<option value={model.id}>{model.name}</option>
 							{/each}
 						</optgroup>
@@ -238,7 +239,7 @@
 			{:else}
 				<!-- Persona cards -->
 				<div class="space-y-3">
-					{#each personas as persona, i (persona.id)}
+					{#each personas as persona (persona.id)}
 						<div class="flex items-start gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
 							<div
 								class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
@@ -340,10 +341,56 @@
 					bind:value={rounds}
 					class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all"
 				>
-					{#each Array.from({ length: 10 }, (_, i) => i + 1) as n}
+					{#each Array.from({ length: 10 }, (_, i) => i + 1) as n (n)}
 						<option value={n}>{n}</option>
 					{/each}
 				</select>
+			</div>
+
+			<div>
+				<div class="block text-sm font-medium text-gray-700 mb-3">
+					{$t('setup_format_label')}
+				</div>
+				<div class="space-y-3">
+					<label class="flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all {format === 'free' ? 'border-amber-400 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}">
+						<input
+							type="radio"
+							bind:group={format}
+							value="free"
+							class="mt-1 text-amber-500 accent-amber-500"
+						/>
+						<div class="flex-1">
+							<div class="font-medium text-gray-900">{$t('setup_format_free')}</div>
+							<div class="text-sm text-gray-500 mt-0.5">{$t('setup_format_free_desc')}</div>
+						</div>
+					</label>
+
+					<label class="flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all {format === 'ranking' ? 'border-amber-400 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}">
+						<input
+							type="radio"
+							bind:group={format}
+							value="ranking"
+							class="mt-1 text-amber-500 accent-amber-500"
+						/>
+						<div class="flex-1">
+							<div class="font-medium text-gray-900">{$t('setup_format_ranking')}</div>
+							<div class="text-sm text-gray-500 mt-0.5">{$t('setup_format_ranking_desc')}</div>
+						</div>
+					</label>
+
+					<label class="flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all {format === 'ideation' ? 'border-amber-400 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}">
+						<input
+							type="radio"
+							bind:group={format}
+							value="ideation"
+							class="mt-1 text-amber-500 accent-amber-500"
+						/>
+						<div class="flex-1">
+							<div class="font-medium text-gray-900">{$t('setup_format_ideation')}</div>
+							<div class="text-sm text-gray-500 mt-0.5">{$t('setup_format_ideation_desc')}</div>
+						</div>
+					</label>
+				</div>
 			</div>
 
 			<div>
@@ -376,7 +423,8 @@
 							personas,
 							rounds,
 							direction,
-							modelId: selectedModel
+							modelId: selectedModel,
+							format
 						});
 						goto('/discussion');
 					}}

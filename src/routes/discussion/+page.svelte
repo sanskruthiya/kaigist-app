@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { Pause, Play, MessageSquare, FileText, Loader2, Mic, CheckCircle, AlertTriangle, PlusCircle, Download, Users, X } from 'lucide-svelte';
 	import { t } from '$lib/i18n';
 	import { goto } from '$app/navigation';
@@ -21,7 +22,7 @@
 	let typingUtteranceId = $state<string | null>(null);
 
 	const personaMap = $derived(() => {
-		const map = new Map<string, { name: string; color: string }>();
+		const map = new SvelteMap<string, { name: string; color: string }>();
 		for (const p of $currentPersonas) {
 			map.set(p.id, { name: p.name, color: p.color });
 		}
@@ -51,7 +52,7 @@
 		if (!$session) return;
 		errorMsg = '';
 		engine = new DiscussionEngine({
-			onUtterance: (personaId, content, round) => {
+			onUtterance: (personaId, content) => {
 				scrollToBottom();
 				// Get the latest utterance ID
 				const utterances = $currentUtterances;
@@ -96,6 +97,11 @@
 		interveneText = '';
 		showIntervene = false;
 		scrollToBottom();
+		
+		// 自動的に議論を再開
+		if ($sessionStatus === 'paused') {
+			handleResume();
+		}
 	}
 
 	function handleExtend() {
@@ -151,7 +157,7 @@
 			<div class="p-4 flex-1 overflow-y-auto">
 				<h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">{$t('discussion_personas')}</h3>
 				<div class="space-y-2">
-					{#each $currentPersonas as persona}
+					{#each $currentPersonas as persona (persona.id)}
 						<div class="flex items-center gap-2">
 							<div
 								class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
@@ -262,9 +268,27 @@
 					{/if}
 
 					{#if $sessionStatus === 'completed'}
-						<div class="flex items-center gap-2 text-green-600 py-4 justify-center">
-							<CheckCircle size={16} />
-							<span class="text-sm font-medium">{$t('discussion_completed_msg')}</span>
+						<div class="flex flex-col items-center gap-4 py-6">
+							<div class="flex items-center gap-2 text-green-600">
+								<CheckCircle size={20} />
+								<span class="text-base font-medium">{$t('discussion_completed_msg')}</span>
+							</div>
+							<div class="flex flex-wrap items-center justify-center gap-3">
+								<button
+									onclick={() => goto('/notes')}
+									class="flex items-center gap-2 px-6 py-3 bg-amber-400 hover:bg-amber-500 text-gray-900 font-medium rounded-lg shadow-lg hover:shadow-xl transition-all"
+								>
+									<FileText size={18} />
+									{$t('discussion_generate_notes')}
+								</button>
+								<button
+									onclick={handleExtend}
+									class="flex items-center gap-2 px-6 py-3 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg border-2 border-gray-300 hover:border-gray-400 transition-all"
+								>
+									<PlusCircle size={18} />
+									{$t('discussion_extend')}
+								</button>
+							</div>
 						</div>
 					{/if}
 
@@ -302,10 +326,6 @@
 				<button onclick={() => (showIntervene = true)} class="p-3 bg-white text-gray-700 rounded-full shadow-lg border hover:bg-gray-50 transition-colors">
 					<MessageSquare size={20} />
 				</button>
-			{:else if $sessionStatus === 'completed'}
-				<button onclick={() => goto('/notes')} class="p-3 bg-amber-400 text-gray-900 rounded-full shadow-lg hover:bg-amber-500 transition-colors">
-					<FileText size={20} />
-				</button>
 			{/if}
 		</div>
 	</div>
@@ -328,7 +348,7 @@
 					</button>
 				</div>
 				<div class="p-4 flex-1 overflow-y-auto space-y-3">
-					{#each $currentPersonas as persona}
+					{#each $currentPersonas as persona (persona.id)}
 						<div class="flex items-center gap-2">
 							<div
 								class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ArrowLeft, Download, Copy, Loader2, CheckCircle, AlertTriangle } from 'lucide-svelte';
+	import { ArrowLeft, Download, Copy, Loader2, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-svelte';
 	import { t, locale } from '$lib/i18n';
 	import { goto } from '$app/navigation';
 	import { session } from '$lib/stores/session';
@@ -13,11 +13,11 @@
 	let errorMsg = $state('');
 	let copied = $state(false);
 
-	async function generateNotes() {
+	async function generateNotes(forceRegenerate = false) {
 		const s = $session;
 		if (!s) return;
 
-		if (s.meetingNotes) {
+		if (s.meetingNotes && !forceRegenerate) {
 			notes = s.meetingNotes;
 			return;
 		}
@@ -28,6 +28,7 @@
 
 		const prompt = buildMeetingNotesPrompt({
 			theme: s.setup.theme,
+			format: s.setup.format,
 			personas: s.setup.personas,
 			utterances: s.utterances,
 			locale: $locale
@@ -68,6 +69,11 @@
 		exportJSON($session);
 	}
 
+	async function handleRegenerate() {
+		if (isGenerating) return;
+		await generateNotes(true);
+	}
+
 	onMount(() => {
 		session.load();
 		if (!$session) {
@@ -95,6 +101,14 @@
 			</a>
 			{#if notes && !isGenerating}
 				<div class="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
+					<button
+						onclick={handleRegenerate}
+						class="flex items-center gap-1 px-3 py-2 text-sm text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-300 transition-colors"
+						title={$t('notes_regenerate')}
+					>
+						<RefreshCw size={14} />
+						<span class="hidden sm:inline">{$t('notes_regenerate')}</span>
+					</button>
 					<button
 						onclick={handleCopy}
 						class="flex items-center gap-1 px-3 py-2 text-sm rounded-lg border transition-colors {copied ? 'text-green-600 border-green-300 bg-green-50' : 'text-gray-600 hover:bg-gray-100'}"
@@ -168,7 +182,7 @@
 			.replace(/^## (.+)$/gm, '<h2>$1</h2>')
 			.replace(/^# (.+)$/gm, '<h1>$1</h1>')
 			.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-			.replace(/^\- (.+)$/gm, '<li>$1</li>')
+			.replace(/^- (.+)$/gm, '<li>$1</li>')
 			.replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
 			.replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
 			.replace(/^---$/gm, '<hr />')

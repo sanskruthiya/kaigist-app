@@ -1,6 +1,6 @@
 import type { Locale } from '$lib/i18n';
 import type { Persona } from '$lib/types/persona';
-import type { Utterance } from '$lib/types/session';
+import type { Utterance, DiscussionFormat } from '$lib/types/session';
 
 const MAX_HISTORY_UTTERANCES = 20;
 const MAX_UTTERANCE_CHARS = 800;
@@ -12,7 +12,31 @@ function getLanguageDirective(locale: Locale): string {
 		: 'All output must be in English.';
 }
 
-function formatPersonas(personas: Persona[], locale: Locale): string {
+function getFormatDirective(format: DiscussionFormat, locale: Locale): string {
+	if (locale === 'ja') {
+		switch (format) {
+			case 'ranking':
+				return '\n【議論形式: 順位付け】\n- 様々な観点から議論を深めつつ、最終ラウンドでは必ず優先順位や優劣を明確に付けること\n- 最終ラウンドでは各ペルソナが自分の考える順位や評価を具体的に示すこと\n- 情報が不足している場合でも、自分の専門性や価値観に基づいて仮定を置き、必ず順位付けを行うこと（例：「〜と仮定すれば」「〜の観点を重視すると」）';
+			case 'ideation':
+				return '\n【議論形式: アイデア出し】\n- 現在の技術的制約や社会倫理的な制約にとらわれず、積極的に面白いアイデアや斬新な発想を提示すること\n- 実現可能性よりも創造性と独自性を重視すること\n- 他のペルソナのアイデアを発展させたり、組み合わせたりすることも歓迎\n- 最終ラウンドでは、提案されたアイデアについて現状（As-Is）と理想の姿（To-Be）を対比させ、差分を明確に示すこと';
+			case 'free':
+			default:
+				return '';
+		}
+	} else {
+		switch (format) {
+			case 'ranking':
+				return '\n【Discussion Format: Ranking】\n- Deepen the discussion from various perspectives, but in the final round, clearly assign priorities or rankings\n- In the final round, each persona should explicitly state their ranking or evaluation\n- Even if information is insufficient, make assumptions based on your expertise and values to provide rankings (e.g., "Assuming that...", "From the perspective of...")';
+			case 'ideation':
+				return '\n【Discussion Format: Ideation】\n- Actively present interesting and innovative ideas without being constrained by current technical or ethical limitations\n- Prioritize creativity and originality over feasibility\n- Feel free to develop or combine ideas from other personas\n- In the final round, contrast the current state (As-Is) with the ideal state (To-Be) for the proposed ideas, clearly showing the gap';
+			case 'free':
+			default:
+				return '';
+		}
+	}
+}
+
+function formatPersonas(personas: Persona[]): string {
 	return personas
 		.map(
 			(p) =>
@@ -53,6 +77,7 @@ function getAlreadySpoken(
 export function buildDiscussionPrompt(opts: {
 	theme: string;
 	direction: string;
+	format: DiscussionFormat;
 	personas: Persona[];
 	utterances: Utterance[];
 	currentRound: number;
@@ -61,7 +86,7 @@ export function buildDiscussionPrompt(opts: {
 	locale: Locale;
 }): string {
 	const lang = getLanguageDirective(opts.locale);
-	const personaList = formatPersonas(opts.personas, opts.locale);
+	const personaList = formatPersonas(opts.personas);
 	const history = formatHistory(opts.utterances, opts.personas);
 	const alreadySpoken = getAlreadySpoken(
 		opts.utterances,
@@ -78,13 +103,15 @@ export function buildDiscussionPrompt(opts: {
 		? `\nファシリテーターの指示: ${opts.facilitatorComment}`
 		: '';
 
+	const formatDirective = getFormatDirective(opts.format, opts.locale);
+
 	if (opts.locale === 'ja') {
 		return `${lang}
 
 あなたは議論シミュレーターです。以下の設定に基づき、次のペルソナの発言を生成してください。
 
 テーマ: ${opts.theme}
-${opts.direction ? `方向性: ${opts.direction}` : ''}
+${opts.direction ? `方向性: ${opts.direction}` : ''}${formatDirective}
 
 ペルソナ一覧:
 ${personaList}
@@ -116,7 +143,7 @@ ${history || '（まだ発言なし）'}
 You are a discussion simulator. Generate the next persona's statement based on the following settings.
 
 Theme: ${opts.theme}
-${opts.direction ? `Direction: ${opts.direction}` : ''}
+${opts.direction ? `Direction: ${opts.direction}` : ''}${formatDirective}
 
 Personas:
 ${personaList}

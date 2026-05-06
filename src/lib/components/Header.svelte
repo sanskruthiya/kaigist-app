@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { Settings, Globe, Eye, EyeOff, Check } from 'lucide-svelte';
+	import { Settings, Globe, Eye, EyeOff, Check, Menu, X } from 'lucide-svelte';
 	import { t, toggleLocale, locale } from '$lib/i18n';
 	import { LLM_PROVIDERS, apiKeys, setApiKey } from '$lib/llm';
 	import type { ProviderId } from '$lib/llm';
 
 	let showSettings = $state(false);
+	let showMobileMenu = $state(false);
 	let activeTab = $state<ProviderId>('gemini');
 	let showKey = $state<Record<ProviderId, boolean>>({ gemini: false, claude: false, openai: false });
 	let savedFeedback = $state<ProviderId | null>(null);
@@ -13,6 +14,10 @@
 		setApiKey(providerId, value.trim());
 		savedFeedback = providerId;
 		setTimeout(() => { if (savedFeedback === providerId) savedFeedback = null; }, 1500);
+	}
+
+	function closeMobileMenu() {
+		showMobileMenu = false;
 	}
 </script>
 
@@ -23,26 +28,96 @@
 		<span class="hidden md:inline text-sm text-gray-500">{$t('app_tagline')}</span>
 	</a>
 
-	<div class="flex items-center gap-2">
+	<!-- Desktop Navigation -->
+	<nav class="hidden md:flex items-center gap-1">
+		<a
+			href="/about"
+			class="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+		>
+			{$t('nav_about')}
+		</a>
+		<a
+			href="/contact"
+			class="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+		>
+			{$t('nav_contact')}
+		</a>
+		<button
+			onclick={() => (showSettings = true)}
+			class="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+		>
+			{$t('nav_api_settings')}
+		</button>
 		<button
 			onclick={toggleLocale}
-			class="flex items-center gap-1 px-2 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+			class="flex items-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
 			title={$t('nav_language')}
 		>
 			<Globe size={16} />
 			<span class="uppercase text-xs font-medium">{$locale}</span>
 		</button>
+	</nav>
 
-		<button
-			onclick={() => (showSettings = true)}
-			class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-			title={$t('nav_api_settings')}
-		>
-			<Settings size={20} />
-			<span class="sr-only">{$t('nav_api_settings')}</span>
-		</button>
-	</div>
+	<!-- Mobile Menu Button -->
+	<button
+		onclick={() => (showMobileMenu = true)}
+		class="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+		aria-label={$t('nav_menu')}
+	>
+		<Menu size={20} />
+	</button>
 </header>
+
+<!-- Mobile Menu -->
+{#if showMobileMenu}
+	<div
+		class="md:hidden fixed inset-0 z-50 flex"
+		role="dialog"
+		aria-modal="true"
+		tabindex="-1"
+		onclick={(e) => { if (e.target === e.currentTarget) closeMobileMenu(); }}
+		onkeydown={(e) => { if (e.key === 'Escape') closeMobileMenu(); }}
+	>
+		<div class="w-72 max-w-[80vw] bg-white shadow-2xl flex flex-col h-full">
+			<div class="flex items-center justify-between p-4 border-b border-gray-100">
+				<span class="text-lg font-bold text-gray-900">{$t('nav_menu')}</span>
+				<button onclick={closeMobileMenu} class="p-1 text-gray-400 hover:text-gray-600">
+					<X size={20} />
+				</button>
+			</div>
+			<nav class="flex-1 p-4 space-y-2">
+				<a
+					href="/about"
+					onclick={closeMobileMenu}
+					class="block px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+				>
+					{$t('nav_about')}
+				</a>
+				<a
+					href="/contact"
+					onclick={closeMobileMenu}
+					class="block px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+				>
+					{$t('nav_contact')}
+				</a>
+				<button
+					onclick={() => { closeMobileMenu(); showSettings = true; }}
+					class="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+				>
+					{$t('nav_api_settings')}
+				</button>
+				<button
+					onclick={() => { toggleLocale(); closeMobileMenu(); }}
+					class="w-full flex items-center justify-between px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+				>
+					<span>{$t('nav_language')}</span>
+					<span class="uppercase text-xs font-medium text-gray-500">{$locale}</span>
+				</button>
+			</nav>
+		</div>
+		<button class="flex-1 bg-black/30 cursor-default" aria-label="Close" onclick={closeMobileMenu}></button>
+	</div>
+{/if}
 
 {#if showSettings}
 	<div

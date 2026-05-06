@@ -1,5 +1,7 @@
 import type { Persona } from './persona';
 
+export type DiscussionFormat = 'free' | 'ranking' | 'ideation';
+
 export interface SessionSetup {
 	theme: string;
 	supplement: string;
@@ -7,6 +9,7 @@ export interface SessionSetup {
 	rounds: number;
 	direction: string;
 	modelId: string;
+	format: DiscussionFormat;
 }
 
 export interface Utterance {
