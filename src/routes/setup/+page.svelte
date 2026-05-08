@@ -58,7 +58,7 @@
 					messages: [
 						{ role: 'user', content: prompt }
 					],
-					maxTokens: 2048,
+					maxTokens: 4096,
 					temperature: 0.9
 				},
 				{
@@ -69,6 +69,9 @@
 			);
 			personas = parsePersonaResponse(fullResponse);
 		} catch (err) {
+			console.error('[proposePersonas] Error:', err);
+			console.error('[proposePersonas] Prompt length:', prompt.length, 'chars');
+			console.error('[proposePersonas] Response:', fullResponse.slice(0, 500));
 			proposalError = err instanceof Error ? err.message : String(err);
 		} finally {
 			isProposing = false;

@@ -70,11 +70,38 @@ Output format:
 }
 
 export function parsePersonaResponse(raw: string): Persona[] {
-	const jsonMatch = raw.match(/\[[\s\S]*\]/);
-	if (!jsonMatch) throw new Error('No JSON array found in response');
+	if (!raw || !raw.trim()) {
+		throw new Error('Empty response from LLM');
+	}
 
-	const parsed = JSON.parse(jsonMatch[0]);
-	if (!Array.isArray(parsed)) throw new Error('Response is not an array');
+	// Strip markdown code blocks if present
+	let cleaned = raw.trim();
+	const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+	if (codeBlockMatch) {
+		cleaned = codeBlockMatch[1].trim();
+	}
+
+	const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+	if (!jsonMatch) {
+		const preview = raw.slice(0, 200).replace(/\n/g, '\\n');
+		throw new Error(`No JSON array found in response: "${preview}"`);
+	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(jsonMatch[0]);
+	} catch (parseErr) {
+		const preview = jsonMatch[0].slice(0, 200).replace(/\n/g, '\\n');
+		throw new Error(`Invalid JSON in response: "${preview}"`, { cause: parseErr });
+	}
+
+	if (!Array.isArray(parsed)) {
+		throw new Error('Response is not an array');
+	}
+
+	if (parsed.length === 0) {
+		throw new Error('Response array is empty');
+	}
 
 	return parsed.map((p: Record<string, string>, i: number) => ({
 		id: generateId(),
