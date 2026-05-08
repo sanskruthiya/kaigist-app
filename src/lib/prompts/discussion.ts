@@ -76,6 +76,7 @@ function getAlreadySpoken(
 
 export function buildDiscussionPrompt(opts: {
 	theme: string;
+	supplement: string;
 	direction: string;
 	format: DiscussionFormat;
 	personas: Persona[];
@@ -105,12 +106,17 @@ export function buildDiscussionPrompt(opts: {
 
 	const formatDirective = getFormatDirective(opts.format, opts.locale);
 
+	// Round2まで補足情報を含める
+	const supplementInfo = opts.currentRound <= 2 && opts.supplement
+		? `\n補足・背景情報:\n${opts.supplement}\n`
+		: '';
+
 	if (opts.locale === 'ja') {
 		return `${lang}
 
 あなたは議論シミュレーターです。以下の設定に基づき、次のペルソナの発言を生成してください。
 
-テーマ: ${opts.theme}
+テーマ: ${opts.theme}${supplementInfo}
 ${opts.direction ? `方向性: ${opts.direction}` : ''}${formatDirective}
 
 ペルソナ一覧:
@@ -142,7 +148,7 @@ ${history || '（まだ発言なし）'}
 
 You are a discussion simulator. Generate the next persona's statement based on the following settings.
 
-Theme: ${opts.theme}
+Theme: ${opts.theme}${supplementInfo}
 ${opts.direction ? `Direction: ${opts.direction}` : ''}${formatDirective}
 
 Personas:

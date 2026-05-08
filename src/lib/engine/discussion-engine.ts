@@ -89,6 +89,7 @@ export class DiscussionEngine {
 
 			const prompt = buildDiscussionPrompt({
 				theme: s.setup.theme,
+				supplement: s.setup.supplement,
 				direction: s.setup.direction,
 				format: s.setup.format,
 				personas: s.setup.personas,

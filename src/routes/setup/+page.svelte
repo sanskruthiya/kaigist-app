@@ -172,7 +172,7 @@
 				<textarea
 					id="supplement"
 					rows={4}
-					maxlength={500}
+					maxlength={5000}
 					bind:value={supplement}
 					class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all resize-none"
 					placeholder={$t('setup_supplement_placeholder')}
