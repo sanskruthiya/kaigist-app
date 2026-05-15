@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { onMount, onDestroy, tick } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { Pause, Play, MessageSquare, FileText, Loader2, Mic, CheckCircle, AlertTriangle, PlusCircle, Download, Users, X } from 'lucide-svelte';
-	import { t } from '$lib/i18n';
+	import { Pause, Play, MessageSquare, FileText, Loader2, Mic, CheckCircle, AlertTriangle, PlusCircle, Download, Users, X, Volume2, VolumeX } from 'lucide-svelte';
+	import { t, locale } from '$lib/i18n';
 	import { goto } from '$app/navigation';
 	import { session, currentPersonas, currentUtterances, currentRound, maxRounds, sessionStatus } from '$lib/stores/session';
 	import { getModel } from '$lib/llm/models';
@@ -10,8 +10,12 @@
 	import type { LLMUsage } from '$lib/llm';
 	import { exportJSON } from '$lib/utils/export';
 	import TypingText from '$lib/components/TypingText.svelte';
+	import { SpeechSynthesizer } from '$lib/audio/speech-synthesizer';
 
 	let engine: DiscussionEngine | null = null;
+	let speechSynth = $state<SpeechSynthesizer | null>(null);
+	let voiceEnabled = $state(false);
+	let speakingPersonaId = $state<string | null>(null);
 	let usage = $state<LLMUsage>({ inputTokens: 0, outputTokens: 0 });
 	let errorMsg = $state('');
 	let showIntervene = $state(false);
@@ -40,20 +44,11 @@
 		return `$${cost.toFixed(4)}`;
 	}
 
-	function scrollToBottom() {
-		tick().then(() => {
-			if (timelineEl) {
-				timelineEl.scrollTop = timelineEl.scrollHeight;
-			}
-		});
-	}
-
 	function startEngine() {
 		if (!$session) return;
 		errorMsg = '';
 		engine = new DiscussionEngine({
 			onUtterance: (personaId, content) => {
-				scrollToBottom();
 				// Get the latest utterance ID
 				const utterances = $currentUtterances;
 				const latestUtterance = utterances[utterances.length - 1];
@@ -64,6 +59,10 @@
 					setTimeout(() => {
 						typingUtteranceId = null;
 					}, typingDuration);
+				}
+				// Voice synthesis
+				if (speechSynth && voiceEnabled) {
+					speechSynth.speak(content, personaId);
 				}
 			},
 			onRoundStart: () => {},
@@ -77,13 +76,25 @@
 
 	function handlePause() {
 		engine?.pause();
+		speechSynth?.pause();
 	}
 
 	function handleResume() {
 		if (engine) {
 			engine.resume();
+			speechSynth?.resume();
 		} else {
 			startEngine();
+		}
+	}
+
+	function toggleVoice() {
+		voiceEnabled = !voiceEnabled;
+		if (speechSynth) {
+			speechSynth.setEnabled(voiceEnabled);
+			if (!voiceEnabled) {
+				speechSynth.stop();
+			}
 		}
 	}
 
@@ -96,7 +107,6 @@
 		engine?.intervene(`${prefix} ${interveneText.trim()}`);
 		interveneText = '';
 		showIntervene = false;
-		scrollToBottom();
 		
 		// 自動的に議論を再開
 		if ($sessionStatus === 'paused') {
@@ -107,8 +117,9 @@
 	function handleExtend() {
 		if (!$session) return;
 		session.extendRounds(3);
-		session.setStatus('running');
-		startEngine();
+		session.setStatus('paused');
+		interveneType = 'summarize';
+		showIntervene = true;
 	}
 
 	onMount(() => {
@@ -117,6 +128,23 @@
 			goto('/setup');
 			return;
 		}
+		// Initialize speech synthesizer
+		try {
+			speechSynth = new SpeechSynthesizer({
+				onSpeechStart: (personaId) => {
+					speakingPersonaId = personaId;
+				},
+				onSpeechEnd: (personaId) => {
+					if (speakingPersonaId === personaId) {
+						speakingPersonaId = null;
+					}
+				}
+			});
+			speechSynth.setLanguage($locale);
+			speechSynth.setPersonas($currentPersonas);
+		} catch (err) {
+			console.warn('[Discussion] Speech synthesis not available:', err);
+		}
 		if ($session.status === 'running' || $session.status === 'setup') {
 			startEngine();
 		}
@@ -124,6 +152,7 @@
 
 	onDestroy(() => {
 		engine?.stop();
+		speechSynth?.stop();
 	});
 </script>
 
@@ -177,6 +206,23 @@
 			<!-- Controls -->
 			<div class="p-4 border-t border-gray-100 space-y-2">
 				<h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{$t('discussion_controls')}</h3>
+				
+				<!-- Voice toggle -->
+				{#if speechSynth}
+					<button 
+						onclick={toggleVoice} 
+						class="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors {voiceEnabled ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'text-gray-700 hover:bg-gray-100'}"
+					>
+						{#if voiceEnabled}
+							<Volume2 size={16} />
+							{$t('discussion_voice_on')}
+						{:else}
+							<VolumeX size={16} />
+							{$t('discussion_voice_off')}
+						{/if}
+					</button>
+				{/if}
+				
 				{#if $sessionStatus === 'running'}
 					<button onclick={handlePause} class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
 						<Pause size={16} />
@@ -216,6 +262,7 @@
 					{#each $currentUtterances as utterance (utterance.id)}
 						{@const isFacilitator = utterance.speakerPersonaId === '__facilitator__'}
 						{@const info = personaMap().get(utterance.speakerPersonaId)}
+						{@const isSpeaking = voiceEnabled && speakingPersonaId === utterance.speakerPersonaId}
 
 						{#if isFacilitator}
 							<!-- Facilitator comment -->
@@ -236,7 +283,7 @@
 							</div>
 						{:else}
 							<!-- Persona utterance -->
-							<div class="flex items-start gap-3">
+							<div class="flex items-start gap-3 px-3 py-2 rounded-lg transition-colors {isSpeaking ? 'bg-yellow-50' : ''}">
 								<div
 									class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
 									style="background-color: {info?.color ?? '#6B7280'}"
@@ -247,6 +294,9 @@
 									<div class="flex items-center gap-2 mb-1">
 										<span class="text-sm font-semibold" style="color: {info?.color ?? '#6B7280'}">{info?.name ?? '?'}</span>
 										<span class="text-xs text-gray-300">R{utterance.round}</span>
+										{#if isSpeaking}
+											<Volume2 size={14} class="text-yellow-600 animate-pulse" />
+										{/if}
 									</div>
 									<p class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
 										{#if typingUtteranceId === utterance.id}
@@ -364,6 +414,20 @@
 					{/each}
 				</div>
 				<div class="p-4 border-t border-gray-100 space-y-2">
+					<!-- Voice toggle (mobile) -->
+					{#if speechSynth}
+						<button 
+							onclick={toggleVoice} 
+							class="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg {voiceEnabled ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'text-gray-700 hover:bg-gray-100'}"
+						>
+							{#if voiceEnabled}
+								<Volume2 size={16} /> {$t('discussion_voice_on')}
+							{:else}
+								<VolumeX size={16} /> {$t('discussion_voice_off')}
+							{/if}
+						</button>
+					{/if}
+					
 					{#if $sessionStatus === 'running'}
 						<button onclick={() => { handlePause(); showDrawer = false; }} class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
 							<Pause size={16} /> {$t('discussion_pause')}

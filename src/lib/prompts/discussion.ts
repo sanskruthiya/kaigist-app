@@ -1,39 +1,14 @@
 import type { Locale } from '$lib/i18n';
 import type { Persona } from '$lib/types/persona';
 import type { Utterance, DiscussionFormat } from '$lib/types/session';
+import { PROMPT_TEMPLATES } from './templates';
 
 const MAX_HISTORY_UTTERANCES = 20;
 const MAX_UTTERANCE_CHARS = 800;
 const TRUNCATE_LIMIT = 600;
 
-function getLanguageDirective(locale: Locale): string {
-	return locale === 'ja'
-		? 'すべての出力は日本語で行うこと。'
-		: 'All output must be in English.';
-}
-
 function getFormatDirective(format: DiscussionFormat, locale: Locale): string {
-	if (locale === 'ja') {
-		switch (format) {
-			case 'ranking':
-				return '\n【議論形式: 順位付け】\n- 様々な観点から議論を深めつつ、最終ラウンドでは必ず優先順位や優劣を明確に付けること\n- 最終ラウンドでは各ペルソナが自分の考える順位や評価を具体的に示すこと\n- 情報が不足している場合でも、自分の専門性や価値観に基づいて仮定を置き、必ず順位付けを行うこと（例：「〜と仮定すれば」「〜の観点を重視すると」）';
-			case 'ideation':
-				return '\n【議論形式: アイデア出し】\n- 現在の技術的制約や社会倫理的な制約にとらわれず、積極的に面白いアイデアや斬新な発想を提示すること\n- 実現可能性よりも創造性と独自性を重視すること\n- 他のペルソナのアイデアを発展させたり、組み合わせたりすることも歓迎\n- 最終ラウンドでは、提案されたアイデアについて現状（As-Is）と理想の姿（To-Be）を対比させ、差分を明確に示すこと';
-			case 'free':
-			default:
-				return '';
-		}
-	} else {
-		switch (format) {
-			case 'ranking':
-				return '\n【Discussion Format: Ranking】\n- Deepen the discussion from various perspectives, but in the final round, clearly assign priorities or rankings\n- In the final round, each persona should explicitly state their ranking or evaluation\n- Even if information is insufficient, make assumptions based on your expertise and values to provide rankings (e.g., "Assuming that...", "From the perspective of...")';
-			case 'ideation':
-				return '\n【Discussion Format: Ideation】\n- Actively present interesting and innovative ideas without being constrained by current technical or ethical limitations\n- Prioritize creativity and originality over feasibility\n- Feel free to develop or combine ideas from other personas\n- In the final round, contrast the current state (As-Is) with the ideal state (To-Be) for the proposed ideas, clearly showing the gap';
-			case 'free':
-			default:
-				return '';
-		}
-	}
+	return PROMPT_TEMPLATES.discussion[locale].formatDirectives[format];
 }
 
 function formatPersonas(personas: Persona[]): string {
@@ -86,7 +61,8 @@ export function buildDiscussionPrompt(opts: {
 	facilitatorComment: string;
 	locale: Locale;
 }): string {
-	const lang = getLanguageDirective(opts.locale);
+	const t = PROMPT_TEMPLATES.discussion[opts.locale];
+	const lang = PROMPT_TEMPLATES.languageDirective[opts.locale];
 	const personaList = formatPersonas(opts.personas);
 	const history = formatHistory(opts.utterances, opts.personas);
 	const alreadySpoken = getAlreadySpoken(
@@ -111,10 +87,12 @@ export function buildDiscussionPrompt(opts: {
 		? `\n補足・背景情報:\n${opts.supplement}\n`
 		: '';
 
+	const requirements = t.requirements.map((r) => `- ${r}`).join('\n');
+
 	if (opts.locale === 'ja') {
 		return `${lang}
 
-あなたは議論シミュレーターです。以下の設定に基づき、次のペルソナの発言を生成してください。
+${t.systemRole}
 
 テーマ: ${opts.theme}${supplementInfo}
 ${opts.direction ? `方向性: ${opts.direction}` : ''}${formatDirective}
@@ -130,23 +108,15 @@ ${facilitator}
 ${history || '（まだ発言なし）'}
 
 要件:
-- まだこのラウンド内及び直前で発言していないペルソナから1名を選び、そのペルソナの立場として発言を生成すること
-- 発言は50〜200字程度にすること
-- 直前の発言内容の繰り返しや単純な否定は避け、具体的なアイデアや建設的な議論を意識すること
-- 他のペルソナの発言に対する新しい視点、具体案、または発展的な問いかけを含めること
-- 現在のラウンドが全体の前半（1〜2割）なら議論を広げ、後半（8割以降）なら議論をまとめたりリスト化する流れを意識すること
-- 必ず以下のJSON形式のみを出力し、それ以外のテキストは含めないこと
+${requirements}
 
 出力形式:
-{
-  "speaker": "発言者の名前",
-  "content": "発言内容"
-}`;
+${t.outputFormat}`;
 	}
 
 	return `${lang}
 
-You are a discussion simulator. Generate the next persona's statement based on the following settings.
+${t.systemRole}
 
 Theme: ${opts.theme}${supplementInfo}
 ${opts.direction ? `Direction: ${opts.direction}` : ''}${formatDirective}
@@ -162,18 +132,10 @@ Discussion so far:
 ${history || '(No statements yet)'}
 
 Requirements:
-- Choose one persona who has NOT spoken in this round or immediately before, and generate their statement from that persona's perspective
-- Keep the statement between 50-200 characters
-- Avoid repeating or simply negating the previous statement; focus on concrete ideas and constructive discussion
-- Include new perspectives, concrete proposals, or thought-provoking questions in response to other personas' statements
-- If current round is in the first 20-40% of total rounds, broaden the discussion; if in the final 20%, focus on summarizing or listing key points
-- Output ONLY the following JSON format with no additional text
+${requirements}
 
 Output format:
-{
-  "speaker": "Speaker's name",
-  "content": "Statement content"
-}`;
+${t.outputFormat}`;
 }
 
 export interface ParsedUtterance {

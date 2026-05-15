@@ -1,12 +1,7 @@
 import type { Locale } from '$lib/i18n';
 import type { Persona } from '$lib/types/persona';
 import { assignColor, generateId } from '$lib/types/persona';
-
-function getLanguageDirective(locale: Locale): string {
-	return locale === 'ja'
-		? 'すべての出力は日本語で行うこと。'
-		: 'All output must be in English.';
-}
+import { PROMPT_TEMPLATES } from './templates';
 
 export function buildPersonaProposalPrompt(
 	theme: string,
@@ -14,59 +9,29 @@ export function buildPersonaProposalPrompt(
 	count: number,
 	locale: Locale
 ): string {
-	const langDirective = getLanguageDirective(locale);
+	const t = PROMPT_TEMPLATES.personaProposal[locale];
+	const langDirective = PROMPT_TEMPLATES.languageDirective[locale];
 
-	if (locale === 'ja') {
-		return `${langDirective}
+	const instruction = t.instruction.replace('{count}', String(count));
+	const requirements = t.requirements.map((r) => `- ${r}`).join('\n');
 
-あなたは議論シミュレーターのペルソナ設計者です。
-以下のテーマについて議論する架空のペルソナを${count}名提案してください。
-
-テーマ: ${theme}
-${supplement ? `補足: ${supplement}` : ''}
-
-要件:
-- 多様な視点（賛成・反対・中立など）を含めること
-- 各ペルソナに明確な専門性と立場を設定すること
-- 年齢層・性格（MBTI等を参考に）を含めること
-- 必ず以下のJSON配列のみを出力し、それ以外のテキストは一切含めないこと
-
-出力形式:
-[
-  {
-    "name": "名前",
-    "ageGroup": "年齢層（例: 30代）",
-    "expertise": "専門分野",
-    "stance": "立場・スタンス",
-    "personality": "性格（MBTI等を参考に簡潔に）"
-  }
-]`;
-	}
+	const supplementLine = supplement
+		? `${locale === 'ja' ? '補足' : 'Context'}: ${supplement}`
+		: '';
 
 	return `${langDirective}
 
-You are a persona designer for a discussion simulator.
-Propose ${count} fictional personas to discuss the following theme.
+${t.systemRole}
+${instruction}
 
-Theme: ${theme}
-${supplement ? `Context: ${supplement}` : ''}
+${locale === 'ja' ? 'テーマ' : 'Theme'}: ${theme}
+${supplementLine}
 
-Requirements:
-- Include diverse perspectives (pro, con, neutral, etc.)
-- Give each persona a clear expertise and stance
-- Include age group and personality (reference MBTI etc.)
-- Output ONLY the following JSON array with no additional text
+${locale === 'ja' ? '要件' : 'Requirements'}:
+${requirements}
 
-Output format:
-[
-  {
-    "name": "Full Name",
-    "ageGroup": "Age group (e.g. 30s)",
-    "expertise": "Area of expertise",
-    "stance": "Stance/position",
-    "personality": "Personality (brief, referencing MBTI etc.)"
-  }
-]`;
+${locale === 'ja' ? '出力形式' : 'Output format'}:
+${t.outputFormat}`;
 }
 
 export function parsePersonaResponse(raw: string): Persona[] {
