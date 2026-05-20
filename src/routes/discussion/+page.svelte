@@ -1,7 +1,12 @@
+<svelte:head>
+	<meta property="og:type" content="article" />
+	<meta name="description" content="AI議論シミュレーション - {$session?.setup.theme ?? ''}" />
+</svelte:head>
+
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { Pause, Play, MessageSquare, FileText, Loader2, Mic, CheckCircle, AlertTriangle, PlusCircle, Download, Users, X, Volume2, VolumeX } from 'lucide-svelte';
+	import { Pause, Play, MessageSquare, FileText, Loader2, Mic, AlertTriangle, PlusCircle, Download, Users, X, Volume2, VolumeX } from 'lucide-svelte';
 	import { t, locale } from '$lib/i18n';
 	import { goto } from '$app/navigation';
 	import { session, currentPersonas, currentUtterances, currentRound, maxRounds, sessionStatus } from '$lib/stores/session';
@@ -258,7 +263,10 @@
 		<!-- Main Timeline -->
 		<div class="flex-1 flex flex-col">
 			<div class="flex-1 overflow-y-auto p-4 lg:p-8" bind:this={timelineEl}>
-				<div class="max-w-3xl mx-auto space-y-4">
+				<article class="max-w-3xl mx-auto space-y-4">
+					<header>
+						<h1 class="sr-only">{$session?.setup.theme ?? 'AI議論'}</h1>
+					</header>
 					{#each $currentUtterances as utterance (utterance.id)}
 						{@const isFacilitator = utterance.speakerPersonaId === '__facilitator__'}
 						{@const info = personaMap().get(utterance.speakerPersonaId)}
@@ -266,8 +274,8 @@
 
 						{#if isFacilitator}
 							<!-- Facilitator comment -->
-							<div class="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
-								<div class="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white shrink-0">
+							<aside class="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+								<div class="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white shrink-0" aria-hidden="true">
 									<Mic size={14} />
 								</div>
 								<div>
@@ -280,24 +288,25 @@
 										{/if}
 									</p>
 								</div>
-							</div>
+							</aside>
 						{:else}
 							<!-- Persona utterance -->
-							<div class="flex items-start gap-3 px-3 py-2 rounded-lg transition-colors {isSpeaking ? 'bg-yellow-50' : ''}">
+							<section class="flex items-start gap-3 px-3 py-2 rounded-lg transition-colors {isSpeaking ? 'bg-yellow-50' : ''}">
 								<div
 									class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
 									style="background-color: {info?.color ?? '#6B7280'}"
+									aria-hidden="true"
 								>
 									{info?.name?.charAt(0) ?? '?'}
 								</div>
 								<div class="flex-1 min-w-0">
-									<div class="flex items-center gap-2 mb-1">
-										<span class="text-sm font-semibold" style="color: {info?.color ?? '#6B7280'}">{info?.name ?? '?'}</span>
-										<span class="text-xs text-gray-300">R{utterance.round}</span>
+									<header class="flex items-center gap-2 mb-1">
+										<h2 class="text-sm font-semibold" style="color: {info?.color ?? '#6B7280'}">{info?.name ?? '?'}</h2>
+										<span class="text-xs text-gray-300" aria-label="Round {utterance.round}">R{utterance.round}</span>
 										{#if isSpeaking}
-											<Volume2 size={14} class="text-yellow-600 animate-pulse" />
+											<Volume2 size={14} class="text-yellow-600 animate-pulse" aria-label="Speaking" />
 										{/if}
-									</div>
+									</header>
 									<p class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
 										{#if typingUtteranceId === utterance.id}
 											<TypingText text={utterance.content} speed={30} />
@@ -306,49 +315,26 @@
 										{/if}
 									</p>
 								</div>
-							</div>
+							</section>
 						{/if}
 					{/each}
 
 					{#if $sessionStatus === 'running'}
-						<div class="flex items-center gap-2 text-gray-400 py-4">
+						<div class="flex items-center gap-2 text-gray-400 py-4" role="status" aria-live="polite">
 							<Loader2 size={16} class="animate-spin" />
 							<span class="text-sm">{$t('status_round_progress')}...</span>
 						</div>
 					{/if}
 
-					{#if $sessionStatus === 'completed'}
-						<div class="flex flex-col items-center gap-4 py-6">
-							<div class="flex items-center gap-2 text-green-600">
-								<CheckCircle size={20} />
-								<span class="text-base font-medium">{$t('discussion_completed_msg')}</span>
-							</div>
-							<div class="flex flex-wrap items-center justify-center gap-3">
-								<button
-									onclick={() => goto('/notes')}
-									class="flex items-center gap-2 px-6 py-3 bg-amber-400 hover:bg-amber-500 text-gray-900 font-medium rounded-lg shadow-lg hover:shadow-xl transition-all"
-								>
-									<FileText size={18} />
-									{$t('discussion_generate_notes')}
-								</button>
-								<button
-									onclick={handleExtend}
-									class="flex items-center gap-2 px-6 py-3 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg border-2 border-gray-300 hover:border-gray-400 transition-all"
-								>
-									<PlusCircle size={18} />
-									{$t('discussion_extend')}
-								</button>
-							</div>
-						</div>
-					{/if}
-
 					{#if errorMsg}
-						<div class="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-							<AlertTriangle size={16} />
-							<span>{errorMsg}</span>
+						<div class="bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
+							<div class="flex items-start gap-2">
+								<AlertTriangle size={16} class="text-red-600 shrink-0 mt-0.5" />
+								<p class="text-sm text-red-800">{errorMsg}</p>
+							</div>
 						</div>
 					{/if}
-				</div>
+				</article>
 			</div>
 
 			<!-- Status bar -->
